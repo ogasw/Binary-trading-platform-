@@ -1,0 +1,100 @@
+to// src/App.js
+import React, { useState } from "react";
+
+function App() {
+  const [user, setUser] = useState(null);
+
+  const login = async (email, password) => {
+    const response = await fetch("http://localhost:5000/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await response.json();
+    if (data.success) setUser(data.user);
+  };
+
+  return (
+    <div>
+      {!user ? (
+        <Login onLogin={login} />
+      ) : (
+        <Dashboard user={user} />
+      )}
+    </div>
+  );
+}
+
+function Login({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onLogin(email, password);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input type="email" placeholder="Email" onChange={(e) => setEmail(e.target.value)} />
+      <input type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} />
+      <button type="submit">Login</button>
+    </form>
+  );
+}
+
+function Dashboard({ user }) {
+  return <h1>Welcome, {user.name}!</h1>;
+}
+
+export default App;
+      npm init -y
+npm install express mongoose bcrypt jsonwebtoken cors
+
+const express = require("express");
+const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const cors = require("cors");
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// MongoDB connection
+mongoose.connect("mongodb://localhost:27017/binary-trading", {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+// User model
+const UserSchema = new mongoose.Schema({
+  email: String,
+  password: String,
+  balance: Number,
+});
+const User = mongoose.model("User", UserSchema);
+
+// Routes
+app.post("/api/register", async (req, res) => {
+  const { email, password } = req.body;
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const user = new User({ email, password: hashedPassword, balance: 100 });
+  await user.save();
+  res.json({ success: true });
+});
+
+app.post("/api/login", async (req, res) => {
+  const { email, password } = req.body;
+  const user = await User.findOne({ email });
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    return res.status(401).json({ success: false });
+  }
+  const token = jwt.sign({ id: user._id }, "SECRET");
+  res.json({ success: true, user: { name: email }, token });
+});
+
+// Start server
+app.listen(5000, () => console.log("Server running on port 5000"));
+
+          
